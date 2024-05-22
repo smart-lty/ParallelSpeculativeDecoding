@@ -29,7 +29,6 @@ class EvalGSM8K(Decoding):
         self.load_model()
 
     def create_demo_text(self, n_shot=8, cot_flag=True, ANSWER_TRIGGER="The answer is"):
-        """copied from https://github.com/Guangxuan-Xiao/GSM8K-eval/blob/main/main.py"""
         question, chain, answer = [], [], []
         question.append(
             "There are 15 trees in the grove. "

@@ -32,7 +32,6 @@ def read_results(file_path):
 
 
 class EvalMTBench(Decoding):
-    """Evaluate the performance on mt-bench, some codes are borrowed from https://github.com/SafeAILab/EAGLE/blob/main/evaluation/gen_ea_answer_llama2chat.py"""
     def __init__(self, args):
         super().__init__(args)
 

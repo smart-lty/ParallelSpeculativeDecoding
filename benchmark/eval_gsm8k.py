@@ -26,7 +26,6 @@ class EvalGSM8K(Decoding):
         self.load_model()
 
     def create_demo_text(self, n_shot=8, cot_flag=True, ANSWER_TRIGGER="The answer is"):
-        """copied from https://github.com/Guangxuan-Xiao/GSM8K-eval/blob/main/main.py"""
         question, chain, answer = [], [], []
         question.append(
             "There are 15 trees in the grove. "
@@ -166,7 +165,7 @@ class EvalGSM8K(Decoding):
                 datum["input_ids"] = torch.tensor(input_ids).unsqueeze(0)
                 datum["ground_truth"] = self.extract_answer_from_output(datum["answer"])
                 data.append(datum)
-        self.data = data
+        self.data = data[:100]
 
         # random.shuffle(self.data)
         self.data = self.data
