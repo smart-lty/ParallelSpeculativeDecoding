@@ -9,13 +9,8 @@ import ipdb
 import random
 from src.util import seed_everything, parse_arguments
 from src.engine import Decoding
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-import lade
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
-
-lade.augment_all()
-lade.config_lade(LEVEL=5, WINDOW_SIZE=7, GUESS_SET_SIZE=7, DEBUG=1)
 
 class EvalHumaneval(Decoding):
     def __init__(self, args):
@@ -25,6 +20,17 @@ class EvalHumaneval(Decoding):
         self.load_tokenizer()
         self.load_data()
         self.load_model()
+
+
+    def load_model(self):
+        # * load models according to different evaluation methods.
+        self.color_print("Loading models...", 3)
+        self.draft_model = AutoModelForCausalLM.from_pretrained(self.args.draft_model, device_map="cuda:0", torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
+        self.target_model = AutoModelForCausalLM.from_pretrained(self.args.target_model, device_map="auto", torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
+
+        self.vocab_size = self.args.vocab_size
+        self.draft_model.config.vocab_size = self.vocab_size
+        self.target_model.config.vocab_size = self.vocab_size
 
     def load_data(self):
         # * load evaluation data
@@ -38,22 +44,6 @@ class EvalHumaneval(Decoding):
                 datum["input_ids"] = torch.tensor(input_ids).unsqueeze(0)
                 data.append(datum)
         self.data = data
-
-    def load_model(self):
-        # * load models according to different evaluation methods.
-        self.color_print(f"Loading models:\n{self.args.target_model}", 3)
-        self.target_model = AutoModelForCausalLM.from_pretrained(self.args.target_model, device_map="auto", torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
-        self.vocab_size = self.args.vocab_size
-        self.target_model.config.vocab_size = self.vocab_size
-
-    def load_tokenizer(self):
-        # * load tokenizers
-        self.color_print(f"Loading tokenizer of {self.args.target_model}...", 3)
-        self.tokenizer = AutoTokenizer.from_pretrained(self.args.target_model, trust_remote_code=True)
-        self.tokenizer.padding_side = "right"
-        
-        # for llama models
-        self.tokenizer.pad_token_id = 2
 
     def preprocess(self, input_text):
         text = input_text.strip()
@@ -90,7 +80,7 @@ class EvalHumaneval(Decoding):
                 input_ids = datum["input_ids"]
                 torch.cuda.synchronize()
                 start_time = time.time()
-                generate_ids = self.target_model.generate(input_ids=input_ids, max_new_tokens=self.args.max_tokens, temperature=self.args.temp, do_sample=False)
+                generate_ids = self.target_model.generate(input_ids.cuda(), max_new_tokens=self.args.max_tokens, temperature=self.args.temp, do_sample=False, assistant_model=self.draft_model)
                 torch.cuda.synchronize()
                 end_time = time.time()
                 if self.accelerator.is_main_process:
@@ -106,8 +96,7 @@ class EvalHumaneval(Decoding):
         
         if self.accelerator.is_main_process:
             speed = sum(wall_times["num_tokens"]) / sum(wall_times["time"])
-            speed_std = (torch.tensor(wall_times["num_tokens"]) / torch.tensor(wall_times["time"])).std().item()
-            self.color_print(f"generate speed (tokens / second): {speed:.2f} with std {speed_std}", 2)
+            self.color_print(f"generate speed (tokens / second): {speed:.2f}", 2)
 
 
 if __name__ == "__main__":

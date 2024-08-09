@@ -9,9 +9,7 @@ import time
 import random
 from src.util import seed_everything, parse_arguments
 from src.engine import Decoding
-import lade
-lade.augment_all()
-lade.config_lade(LEVEL=7, WINDOW_SIZE=20, GUESS_SET_SIZE=20, DEBUG=1)
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 class EvalGSM8K(Decoding):
     def __init__(self, args):
@@ -27,7 +25,16 @@ class EvalGSM8K(Decoding):
         self.load_tokenizer()
         self.load_data()
         self.load_model()
-        
+
+    def load_model(self):
+        # * load models according to different evaluation methods.
+        self.color_print("Loading models...", 3)
+        self.draft_model = AutoModelForCausalLM.from_pretrained(self.args.draft_model, device_map="cuda:0", torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
+        self.target_model = AutoModelForCausalLM.from_pretrained(self.args.target_model, device_map="auto", torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
+
+        self.vocab_size = self.args.vocab_size
+        self.draft_model.config.vocab_size = self.vocab_size
+        self.target_model.config.vocab_size = self.vocab_size
 
     def create_demo_text(self, n_shot=8, cot_flag=True, ANSWER_TRIGGER="The answer is"):
         question, chain, answer = [], [], []
@@ -233,7 +240,7 @@ class EvalGSM8K(Decoding):
                 input_ids = datum["input_ids"]
                 torch.cuda.synchronize()
                 start_time = time.time()
-                generate_ids = self.target_model.generate(input_ids, max_new_tokens=self.args.max_tokens, temperature=self.args.temp, do_sample=False)
+                generate_ids = self.target_model.generate(input_ids.cuda(), max_new_tokens=self.args.max_tokens, temperature=self.args.temp, assistant_model=self.draft_model, do_sample=False)
                 torch.cuda.synchronize()
                 end_time = time.time()
                 if self.accelerator.is_main_process:
@@ -263,8 +270,7 @@ class EvalGSM8K(Decoding):
         
         if self.accelerator.is_main_process:
             speed = sum(wall_times["num_tokens"]) / sum(wall_times["time"])
-            speed_std = (torch.tensor(wall_times["num_tokens"]) / torch.tensor(wall_times["time"])).std().item()
-            self.color_print(f"generate speed (tokens / second): {speed:.2f} with std {speed_std}", 2)
+            self.color_print(f"generate speed (tokens / second): {speed:.2f}", 2)
 
 
 if __name__ == "__main__":

@@ -161,7 +161,8 @@ class EvalGSM8K(Decoding):
             for line in f.readlines():
                 datum = json.loads(line)
                 datum["input_text"] = self.preprocess(datum["question"])
-                input_ids = self.tokenizer.encode(datum["input_text"])
+                encode_special_token_flag = not ("Llama-3.1" in self.args.draft_model and "Llama-3.1" in self.args.target_model)
+                input_ids = self.tokenizer.encode(datum["input_text"], add_special_tokens=encode_special_token_flag)
                 datum["input_ids"] = torch.tensor(input_ids).unsqueeze(0)
                 datum["ground_truth"] = self.extract_answer_from_output(datum["answer"])
                 data.append(datum)
@@ -245,7 +246,7 @@ class EvalGSM8K(Decoding):
                     # assert answer != self.INVALID_ANS, self.color_print(f"Invalid Answer!\n question:\n{datum['question']}\nanswer:\n{answer}", 1)
                     if answer == datum["ground_truth"]:
                         acc += 1
-                    out_f.write(json.dumps({"question": datum["question"], "ground_truth": datum["ground_truth"], "answer": answer}, ensure_ascii=False) + "\n")
+                    out_f.write(json.dumps({"question": datum["question"], "time": end_time-start_time, "new_tokens": generate_ids.shape[1] - input_ids.shape[1], "ground_truth": datum["ground_truth"], "answer": answer}, ensure_ascii=False) + "\n")
                 out_f.flush()
             self.color_print(f"Accuracy: {acc / len(self.data):.4f} in the {_+1}-th iterations.", 2)
         
@@ -263,7 +264,8 @@ class EvalGSM8K(Decoding):
         
         if self.accelerator.is_main_process:
             speed = sum(wall_times["num_tokens"]) / sum(wall_times["time"])
-            self.color_print(f"generate speed (tokens / second): {speed:.2f}", 2)
+            speed_std = (torch.tensor(wall_times["num_tokens"]) / torch.tensor(wall_times["time"])).std().item()
+            self.color_print(f"generate speed (tokens / second): {speed:.2f} with std {speed_std}", 2)
 
 
 if __name__ == "__main__":

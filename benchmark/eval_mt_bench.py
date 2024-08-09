@@ -21,14 +21,7 @@ def read_results(file_path):
         for choice in item["choices"]:
             record[item["category"]]["wall_time"].extend(choice["wall_time"])
             record[item["category"]]["num_token"].extend(choice["num_token"])
-    speed_record = {}
-    for k in record:
-        if k == "writing":
-            speed = sum(record[k]["num_token"][1:]) / sum(record[k]["wall_time"][1:])
-        else:
-            speed = sum(record[k]["num_token"]) / sum(record[k]["wall_time"])
-        speed_record[k] = speed
-    return speed_record
+    return record
 
 
 class EvalMTBench(Decoding):
@@ -44,6 +37,8 @@ class EvalMTBench(Decoding):
             self.model_id = "llama-2-chat"
         elif "vicuna" in self.args.draft_model and "vicuna" in self.args.target_model:
             self.model_id = "vicuna"
+        elif "Llama-3.1" in self.args.draft_model and "Llama-3.1" in self.args.target_model:
+            self.model_id = "llama-3.1"
         else:
             raise NotImplementedError
 
@@ -86,19 +81,41 @@ class EvalMTBench(Decoding):
                     self.seed = random.randint(0, 1000000)
                 seed_everything(self.seed)
 
-                conv = get_conversation_template(self.model_id)
-                if self.model_id == "llama-2-chat":
-                    sys_p = "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\n\nIf a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information."
-                    conv.system_message = sys_p
+                if self.model_id == "llama-3.1":
+                    messages = [
+                            {"role": "system",
+                            "content": "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\n\nIf a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information."},
+                        ]
+                else:        
+                    conv = get_conversation_template(self.model_id)
+                    if self.model_id == "llama-2-chat":
+                        sys_p = "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\n\nIf a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information."
+                        conv.system_message = sys_p
+
                 turns = []
                 wall_time = []
                 num_token = []
                 for turn_idx in range(len(question["turns"])):
                     qs = question["turns"][turn_idx]
-                    conv.append_message(conv.roles[0], qs)
-                    conv.append_message(conv.roles[1], None)
-                    prompt = conv.get_prompt() + " "
-                    input_ids = torch.tensor(self.tokenizer.encode(prompt)).unsqueeze(0)
+
+                    if self.model_id == "llama-3.1":
+                        messages.append({
+                            "role": "user",
+                            "content": qs
+                        })
+                        prompt = self.tokenizer.apply_chat_template(
+                            messages,
+                            tokenize=False,
+                            add_generation_prompt=True,
+                        )
+                        input_ids = torch.tensor(self.tokenizer([prompt],add_special_tokens=False,).input_ids)
+                    
+                    else:
+                        conv.append_message(conv.roles[0], qs)
+                        conv.append_message(conv.roles[1], None)
+                        prompt = conv.get_prompt() + " "
+                        input_ids = torch.tensor(self.tokenizer.encode(prompt)).unsqueeze(0)
+
                     torch.cuda.synchronize()
                     start_time = time.time()
                     output_ids = decoding(input_ids)
@@ -114,7 +131,13 @@ class EvalMTBench(Decoding):
                         else:
                             output_text = output_text.replace(special_token, "")
                     output_text = output_text.strip()
-                    conv.messages[-1][-1] = output_text
+                    if self.model_id == "llama-3.1":
+                        messages.append({
+                            "role": "assistant",
+                            "content": output_text
+                        })
+                    else:
+                        conv.messages[-1][-1] = output_text
                     turns.append(output_text)
                     wall_time.append(end_time - start_time)
                     num_token.append(output_ids.shape[1] - input_ids.shape[1])
@@ -134,10 +157,28 @@ class EvalMTBench(Decoding):
         out_f.close()
 
         self.color_print(f"current eval mode: {self.args.eval_mode}", 0)
-        speed = read_results(out_path)
-        for k, v in speed.items():
-            self.color_print(f"Generating speed of category {k}: {v:.2f} token / second", 2)
-        self.color_print(f"Average generating speed: {sum(speed.values())/len(speed.values())} token / second", 2)
+        
+        record = read_results(out_path)
+        
+        total_num_token, total_wall_time = [], []
+
+        for k in record:
+            if k == "writing":
+                num_tokens = torch.tensor(record[k]["num_token"][1:])
+                wall_times = torch.tensor(record[k]["wall_time"][1:])
+                total_num_token.extend(record[k]["num_token"][1:])
+                total_wall_time.extend(record[k]["wall_time"][1:])
+            else:
+                num_tokens = torch.tensor(record[k]["num_token"])
+                wall_times = torch.tensor(record[k]["wall_time"])
+                total_num_token.extend(record[k]["num_token"])
+                total_wall_time.extend(record[k]["wall_time"])
+
+            speed = num_tokens / wall_times
+            self.color_print(f"Generating speed of category {k}: {speed.float().mean().item():.2f} with std {speed.float().std().item()} token / second", 2)
+
+        total_speed = torch.tensor(total_num_token) / torch.tensor(total_wall_time)
+        self.color_print(f"Average generating speed: {total_speed.float().mean().item()} with std {total_speed.float().std().item()} token / second", 2)
         self.color_print(f"draft model forward times: {self.draft_forward_times}", 2)
         
         self.accelerator.wait_for_everyone()
