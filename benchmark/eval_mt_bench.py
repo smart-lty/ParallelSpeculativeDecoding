@@ -66,6 +66,12 @@ class EvalMTBench(Decoding):
             decoding = self.speculative_decoding
         elif self.args.eval_mode == "para_sd":
             decoding = self.parallel_speculative_decoding
+        elif self.args.eval_mode == "para_sd_wo_1":
+            decoding = self.parallel_speculative_decoding_without_strategy_1
+        elif self.args.eval_mode == "para_sd_wo_2":
+            decoding = self.parallel_speculative_decoding_without_strategy_2
+        elif self.args.eval_mode == "para_sd_rc":
+            decoding = self.parallel_speculative_decoding_RC
         else:
             raise NotImplementedError
         
