@@ -22,7 +22,6 @@ class EvalHumaneval(Decoding):
     
         self.draft_time = []
         self.target_time = []
-        self.verify_time = []
         self.acc_num = []
 
     def load_data(self):
@@ -70,7 +69,7 @@ class EvalHumaneval(Decoding):
             decoding = self.parallel_speculative_decoding_without_strategy_1
         elif self.args.eval_mode == "para_sd_wo_2":
             decoding = self.parallel_speculative_decoding_without_strategy_2
-        elif self.args.eval_mode == "para_sd_rc":
+        elif self.args.eval_mode == "rc_para_sd":
             decoding = self.parallel_speculative_decoding_RC
         else:
             raise NotImplementedError
@@ -123,6 +122,7 @@ class EvalHumaneval(Decoding):
                 self.color_print(f"Mean accepted tokens: {sum(self.num_acc_tokens) / len(self.num_acc_tokens)}")
             except:
                 pass
+        
 
 
 if __name__ == "__main__":

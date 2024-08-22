@@ -24,7 +24,7 @@ class EvalHumaneval(Decoding):
     def load_model(self):
         # * load models according to different evaluation methods.
         self.color_print(f"Loading models:\n{self.args.draft_model}\n{self.args.target_model}", 3)
-        self.draft_model = LlamaForCausalLM.from_pretrained(self.args.draft_model, device_map="auto", torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
+        self.draft_model = LlamaForCausalLM.from_pretrained(self.args.draft_model, device_map="cuda:0", torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
         self.target_model = LlamaForCausalLM.from_pretrained(self.args.target_model, device_map="auto", torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
         self.window_size = 20
         self.guess_set_size = 20
@@ -39,7 +39,8 @@ class EvalHumaneval(Decoding):
             for line in f.readlines():
                 datum = json.loads(line)
                 datum["input_text"] = self.preprocess(datum["prompt"])
-                input_ids = self.tokenizer.encode(datum["input_text"])
+                encode_special_token_flag = not ("Llama-3.1" in self.args.draft_model and "Llama-3.1" in self.args.target_model)
+                input_ids = self.tokenizer.encode(datum["input_text"], add_special_tokens=encode_special_token_flag)
                 datum["input_ids"] = torch.tensor(input_ids).unsqueeze(0)
                 data.append(datum)
         self.data = data
@@ -84,7 +85,7 @@ class EvalHumaneval(Decoding):
                     torch.cuda.synchronize()
                     end_time = time.time()
                     if self.accelerator.is_main_process:
-                        if datum["task_id"] != 0:
+                        if datum["task_id"] != "HumanEval/0":
                             # skip the first prompt time consumption
                             wall_times["time"].append(end_time-start_time)
                             wall_times["num_tokens"].append(generate_ids.shape[1] - input_ids.shape[1])
@@ -95,10 +96,10 @@ class EvalHumaneval(Decoding):
                     continue
         
         out_f.close()
-        
         if self.accelerator.is_main_process:
             speed = sum(wall_times["num_tokens"]) / sum(wall_times["time"])
-            self.color_print(f"generate speed (tokens / second): {speed:.2f}", 2)
+            speed_std = (torch.tensor(wall_times["num_tokens"]) / torch.tensor(wall_times["time"])).std().item()
+            self.color_print(f"generate speed (tokens / second):  {speed:.2f} with std {speed_std}", 2)
 
 
 if __name__ == "__main__":

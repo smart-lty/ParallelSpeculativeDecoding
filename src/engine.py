@@ -9,6 +9,7 @@ from accelerate import Accelerator
 from .kvcache import KVCacheModel
 from .kvcache4RC import KVCacheModel as KVCache2Model
 from .util import seed_everything, norm_logits, sample, max_fn
+import time
 
 
 class Decoding(ABC):
@@ -128,7 +129,6 @@ class Decoding(ABC):
             prefix_len = prefix.shape[1]
             x = approx_model_cache.generate(prefix.to(draft_device), self.args.gamma)
             _ = target_model_cache.generate(x.to(target_device), 1)
-
             if self.accelerator.is_main_process:
                 self.draft_forward_times += self.args.gamma
                 self.target_forward_times += 1
@@ -257,11 +257,11 @@ class Decoding(ABC):
         if self.accelerator.is_main_process:
             model = KVCache2Model(self.draft_model, self.draft_model_2, self.args.temp, self.args.top_k, self.args.top_p)
             model.vocab_size = self.vocab_size
-            device = self.draft_model.device
+            device = torch.device("cuda:0")
         else:
             model = KVCacheModel(self.target_model, self.args.temp, self.args.top_k, self.args.top_p)
             model.vocab_size = self.vocab_size
-            device = self.target_model.device
+            device = torch.device("cuda:1")
 
         max_tokens = prefix.shape[1] + self.args.max_tokens
         
@@ -282,6 +282,7 @@ class Decoding(ABC):
             else:
                 x = model.generate(input_ids, 1)
                 prob = model._prob_history[:, prefix_len-self.args.gamma-1:prefix_len, :self.vocab_size]
+                # ! the prob of the target model should be moved to a different device of the draft device to avoid deadlock
                 prob = prob.to("cuda:1")
                 self.target_forward_times += 1
             
@@ -292,6 +293,7 @@ class Decoding(ABC):
             draft_ids = all_prob[0, [0], 1:self.args.gamma*2].int()
             draft_prob = all_prob[[0], 1:, :]
             target_prob = all_prob[[1], 1:, :]
+
             if cur_mode:
                 first_token = draft_ids[:, -self.args.gamma]
                 torch.manual_seed(self.seed + prefix_len)

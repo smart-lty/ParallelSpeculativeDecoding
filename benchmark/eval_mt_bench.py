@@ -70,7 +70,7 @@ class EvalMTBench(Decoding):
             decoding = self.parallel_speculative_decoding_without_strategy_1
         elif self.args.eval_mode == "para_sd_wo_2":
             decoding = self.parallel_speculative_decoding_without_strategy_2
-        elif self.args.eval_mode == "para_sd_rc":
+        elif self.args.eval_mode == "rc_para_sd":
             decoding = self.parallel_speculative_decoding_RC
         else:
             raise NotImplementedError
@@ -192,7 +192,6 @@ class EvalMTBench(Decoding):
         if (self.accelerator.num_processes == 1 and self.accelerator.is_main_process) or (self.accelerator.num_processes == 2 and not self.accelerator.is_main_process):
             print(f"\033[92mtarget model forward times: {self.target_forward_times}\033[0m")
         
-        self.accelerator.wait_for_everyone()
 
 if __name__ == "__main__":
     args = parse_arguments()
