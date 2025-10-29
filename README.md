@@ -6,6 +6,7 @@
 </p>
 
 *News* 🔥
+- [2025/10] We release [nano-PEARL](https://github.com/smart-lty/nano-PEARL), implementing PEARL with nano-vllm! Check it out!
 - [2025/02] We release a new version of PEARL paper. [link](https://arxiv.org/pdf/2408.11850)
 - [2025/01] PEARL is accepted to ICLR 2025
 
