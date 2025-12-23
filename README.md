@@ -89,8 +89,9 @@ Our PEARL framework consists of a draft model, a target model and two strategies
 
 Follow the instructions below to prepare for reproducing the results in the paper.
 
-1. experimental environment: `sh install.sh` will install the necessary packages in the project.
-2. code changes: changes the code `src/util.py` line 31-38 and line 49, to fill in your model paths and data paths.
+1. **Install dependencies**: Run `sh install.sh` to install all necessary packages. This uses [uv](https://github.com/astral-sh/uv) for fast installation.
+2. **Activate environment**: After installation, run `source .venv/bin/activate`.
+3. **Configure paths**: Update `src/util.py` lines 31-38 and line 49 with your model paths and data paths.
 
 
 

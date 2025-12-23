@@ -1,15 +1,15 @@
 import torch
 import transformers
 import warnings
-transformers.utils.logging.set_verbosity(40)
-warnings.filterwarnings("ignore")
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from abc import ABC, abstractmethod
 from accelerate import Accelerator
 from .kvcache import KVCacheModel
 from .kvcache4RC import KVCacheModel as KVCache2Model
 from .util import seed_everything, norm_logits, sample, max_fn
-import time
+
+transformers.utils.logging.set_verbosity(40)
+warnings.filterwarnings("ignore")
 
 
 class Decoding(ABC):

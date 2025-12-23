@@ -155,7 +155,7 @@ class EvalGSM8K(Decoding):
 
     def load_data(self):
         # * load evaluation data
-        self.color_print(f"Loading GSM8K data...", 3)
+        self.color_print("Loading GSM8K data...", 3)
         data = []
         with open(os.path.join(self.args.data_path, "gsm8k.jsonl")) as f:
             for line in f.readlines():

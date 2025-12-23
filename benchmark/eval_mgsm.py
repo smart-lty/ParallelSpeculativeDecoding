@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 sys.path.append(os.path.join(sys.path[0], "../"))
 import torch
@@ -36,7 +35,7 @@ class EvalMGSM(Decoding):
 
     def load_data(self):
         # * load evaluation data
-        self.color_print(f"Loading MGSM data...", 3)
+        self.color_print("Loading MGSM data...", 3)
         data = []
         with open(os.path.join(self.args.data_path, "mgsm.jsonl")) as f:
             for line in f.readlines():
@@ -83,7 +82,6 @@ class EvalMGSM(Decoding):
                 self.seed = random.randint(0, 1000000)
             seed_everything(self.seed)
             self.seed_set.add(self.seed)
-            acc = 0
             for idx, datum in tqdm.tqdm(enumerate(self.data), total=len(self.data), disable=not self.accelerator.is_main_process, ncols=50):
                 input_ids = datum["input_ids"]
                 torch.cuda.synchronize()

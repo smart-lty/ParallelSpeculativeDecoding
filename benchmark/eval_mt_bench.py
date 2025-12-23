@@ -44,7 +44,7 @@ class EvalMTBench(Decoding):
 
     def load_data(self):
         # * load evaluation data
-        self.color_print(f"Loading MT-bench data...", 3)
+        self.color_print("Loading MT-bench data...", 3)
         data = []
         with open(os.path.join(self.args.data_path, "mt_bench.jsonl")) as f:
             for line in f.readlines():

@@ -5,11 +5,9 @@ import torch
 import json
 import tqdm
 import time
-import ipdb
 import random
 from src.util import seed_everything, parse_arguments
 from src.engine import Decoding
-from collections import Counter
 
 class EvalHumaneval(Decoding):
     def __init__(self, args):
@@ -26,7 +24,7 @@ class EvalHumaneval(Decoding):
 
     def load_data(self):
         # * load evaluation data
-        self.color_print(f"Loading HumanEval data...", 3)
+        self.color_print("Loading HumanEval data...", 3)
         data = []
         with open(os.path.join(self.args.data_path, "humaneval.jsonl")) as f:
             for line in f.readlines():
@@ -118,10 +116,8 @@ class EvalHumaneval(Decoding):
             self.color_print(f"generate speed (tokens / second):  {speed:.2f} with std {speed_std}", 2)
 
         if self.accelerator.is_main_process:
-            try:
+            if self.num_acc_tokens:
                 self.color_print(f"Mean accepted tokens: {sum(self.num_acc_tokens) / len(self.num_acc_tokens)}")
-            except:
-                pass
         
 
 

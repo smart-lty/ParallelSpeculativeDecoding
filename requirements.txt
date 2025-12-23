@@ -1,0 +1,20 @@
+# Requirements for Parallel Speculative Decoding
+# Updated: 2025-12-23
+
+# Core Framework
+torch==2.9.1
+
+# LLM Infrastructure
+transformers==4.57.3
+accelerate>=1.0.0
+fschat==0.2.36
+
+# Utilities
+numpy<2.0
+tqdm
+ipdb
+shortuuid
+gradio
+
+# Optional (for comparisons):
+# Ouroboros: git clone https://github.com/thunlp/Ouroboros.git
